@@ -39,13 +39,16 @@
   nil)
 
 ; If all pieces have no HP, the game is over for that player
-(defn game-over? [dboard]
-  (zero? (apply + (vals pieces))))
+(defn board-won? [dboard]
+  (zero? (apply + (vals (:pieces dboard)))))
+
+(defn game-won? [game]
+  (or (board-won? (:board1 game)) (board-won? (:board2 game))))
 
 (defn get-winner [game]
-  (if (game-over? {:board1 game})
+  (if (board-won? {:board1 game})
     1
-    (if (game-over? {:board2 game})
+    (if (board-won? {:board2 game})
       2
       0)))
 
@@ -65,7 +68,6 @@
 
 ; Fires a missle at loc (x, y). Returns the modified dboard.
 (defn fire [dboard x y]
-  (println x y)
   (let [target (get-square (:board dboard) x y)
         {piece :piece, state :state} target]
     (if (nil? piece) ; miss
@@ -91,31 +93,38 @@
   (println
     "Welcome to Battleship. Input some coordinates to fire, or 'Q' to quit.")
   (loop [game (newgame)]
-    (printgame game)
-    (print "Fire: ")
-    (flush)
-    (let [input-line (read-line) 
-          letter (first (filter #(Character/isLetter %) input-line))
-          number (first (filter #(Character/isDigit %) input-line))]
-      (cond
-        (= \Q letter)
-        (do
-          (println "Be seeing you.")
-          nil)
-        (or (nil? letter) (nil? number))
-        (do
-          (println "Please input valid coordinates.")
-          (recur game))
-        true
-        (let [uppercase-letter (if (>= (int letter) (int \a))
-                                 (char (- (int letter) 32))
-                                 letter)
-              letter-coord (- (int uppercase-letter) (int \A))
-              number-coord (Character/getNumericValue number)]
-          (if (and (is-valid-coord letter-coord)
-                   (is-valid-coord number-coord))
-            (recur (Game. (:board1 game)
-                          (fire (:board2 game) letter-coord number-coord)))
+    (if (game-won? game)
+      (let [winner (get-winner game)]
+        (if (= winner 1)
+          (println "***YOU WIN!***")
+          (println "***YOU LOSE!***"))
+        nil)
+      (do
+        (printgame game)
+        (print "Fire: ")
+        (flush)
+        (let [input-line (read-line) 
+              letter (first (filter #(Character/isLetter %) input-line))
+              number (first (filter #(Character/isDigit %) input-line))]
+          (cond
+            (= \Q letter)
+            (do
+              (println "Be seeing you...")
+              nil)
+            (or (nil? letter) (nil? number))
             (do
               (println "Please input valid coordinates.")
-              (recur game))))))))
+              (recur game))
+            true
+            (let [uppercase-letter (if (>= (int letter) (int \a))
+                                     (char (- (int letter) 32))
+                                     letter)
+                  letter-coord (- (int uppercase-letter) (int \A))
+                  number-coord (Character/getNumericValue number)]
+              (if (and (is-valid-coord letter-coord)
+                       (is-valid-coord number-coord))
+                (recur (Game. (:board1 game)
+                              (fire (:board2 game) letter-coord number-coord)))
+                (do
+                  (println "Please input valid coordinates.")
+                  (recur game))))))))))

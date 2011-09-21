@@ -49,6 +49,8 @@
       (place-piece board [piecename piecelen] x y is-horizontal))))
 
 ; try (possibly forever!) to place a piece
+; works by making an infinite sequence of randomly-try-place-piece calls
+; and pulling the first one
 (defn randomly-place-piece [board piece]
   (first (remove nil? (repeat-expr
                         (randomly-try-place-piece board piece)))))

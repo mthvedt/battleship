@@ -1,5 +1,4 @@
-(ns battleship.core
-  (:import java.util.Random))
+(ns battleship.core)
 
 ; This macro will help us construct lazy sequences.
 (defmacro repeat-expr [expr]
@@ -40,40 +39,19 @@
           nil)))))
 
 ; try once to place a piece, return nil if failed
-(defn randomly-try-place-piece [board [piecename piecelen] random]
-  (let [is-horizontal (= (.nextInt random 2) 0)
-        coord-a (.nextInt random board-size)
+(defn randomly-try-place-piece [board [piecename piecelen]]
+  (let [is-horizontal (= (rand-int 2) 0)
+        coord-a (rand-int board-size)
         ; subtract piecelen; make sure the piece doesn't overflow off the board
-        coord-b (.nextInt random (- board-size piecelen))]
+        coord-b (rand-int (- board-size piecelen))]
     (let [x (if is-horizontal coord-b coord-a)
           y (if is-horizontal coord-a coord-b)]
       (place-piece board [piecename piecelen] x y is-horizontal))))
 
 ; try (possibly forever!) to place a piece
-(defn randomly-place-piece [board piece random]
+(defn randomly-place-piece [board piece]
   (first (remove nil? (repeat-expr
-                        (randomly-try-place-piece board piece random)))))
+                        (randomly-try-place-piece board piece)))))
 
-(defn place-all-pieces [board random]
-  (reduce #(randomly-place-piece % %2 random) board pieces))
-
-(defn get-square-str [{piece :piece, state :state}  is-friendly]
-  (case state
-    :sunk "#"
-    :struck (if (nil? piece) "." "*")
-    :unstruck (if (and is-friendly (not (nil? piece))) "O" " ")))
-
-(defn print-board [board is-friendly]
-  (println (apply str (concat "  " (range 10))))
-  (let [top-bottom-border (apply str
-                              (concat " +" (repeat board-size "-") "+"))]
-    (println top-bottom-border)
-    (reduce 
-      (fn [row-char-num row]
-        (println
-          (apply str
-                 (concat [(char row-char-num)] "|"
-                         (map #(get-square-str % is-friendly) row) "|")))
-        (inc row-char-num))
-      (int \A) board)
-    (println top-bottom-border)))
+(defn place-all-pieces [board]
+  (reduce randomly-place-piece board pieces))

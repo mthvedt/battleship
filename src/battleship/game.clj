@@ -35,6 +35,10 @@
            (range (int \A) (int \K)) (:board dboard))
       [top-bottom-border])))
 
+; good for debugging
+(defn print-board [board]
+  (dorun (map println (get-board-strs (DecoratedBoard. board nil nil) true))))
+
 (defn print-message [dboard is-friendly]
   nil)
 
@@ -93,14 +97,15 @@
   (println
     "Welcome to Battleship. Input some coordinates to fire, or 'Q' to quit.")
   (loop [game (newgame)]
+    (printgame game)
     (if (game-won? game)
       (let [winner (get-winner game)]
         (if (= winner 1)
           (println "***YOU WIN!***")
           (println "***YOU LOSE!***"))
-        nil)
+        (flush)
+        nil) ; returning nil not neccesary, but clarifies the code
       (do
-        (printgame game)
         (print "Fire: ")
         (flush)
         (let [input-line (read-line) 
@@ -110,6 +115,7 @@
             (= \Q letter)
             (do
               (println "Be seeing you...")
+              (flush)
               nil)
             (or (nil? letter) (nil? number))
             (do

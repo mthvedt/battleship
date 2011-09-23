@@ -1,9 +1,5 @@
 (ns battleship.core)
 
-; This macro will help us construct lazy sequences.
-(defmacro repeat-expr [expr]
-  `(repeatedly (fn [] ~expr)))
-
 ; A square can be empty or contain a ship.
 ; A square can be in three states: unstruck, struck, or sunk.
 (defrecord Square [piece state])
@@ -52,8 +48,8 @@
 ; works by making an infinite sequence of randomly-try-place-piece calls
 ; and pulling the first one
 (defn randomly-place-piece [board piece]
-  (first (remove nil? (repeat-expr
-                        (randomly-try-place-piece board piece)))))
+  (first (remove nil? (repeatedly
+                        #(randomly-try-place-piece board piece)))))
 
 (defn place-all-pieces [board]
   (reduce randomly-place-piece board pieces))

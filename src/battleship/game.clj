@@ -6,54 +6,26 @@
 (defrecord DecoratedBoard [board pieces action])
 
 (defn new-decorated-board []
-  (DecoratedBoard. (place-all-pieces newboard) (reduce conj {} pieces) nil))
+  (DecoratedBoard. (place-all-pieces newboard) pieces-map nil))
 
 ; Returns a str representing a square
-(defn get-square-str [{piece :piece, state :state} pieces is-friendly]
-  (case state
-    :struck (if (nil? piece) "."
-              (if (zero? (get pieces piece)) "#"
-                "*"))
-    :unstruck (if (and is-friendly (not (nil? piece))) "O" " ")))
-
-; Concatenate all the things then apply str. Not the same as C 'strcat'
-(defn strcat [& things] (apply str (apply concat things)))
-
-; A sequence of strs (lines) representing a board
-; each str has the same length, making this a 13x13 char grid
-(defn get-board-strs [dboard is-friendly]
-  (let [top-bottom-border (strcat " +" (repeat board-size "-") "+")]
-    (concat
-      [(strcat "  " (range 10) " ")]
-      [top-bottom-border]
-      (map (fn [char-num row]
-             (strcat [(char char-num)] "|"
-                     (map #(get-square-str %
-                                           (:pieces dboard)
-                                           is-friendly)
-                          row) "|"))
-           (range (int \A) (int \K)) (:board dboard))
-      [top-bottom-border])))
-
-; good for debugging
-(defn print-board [board]
-  (dorun (map println (get-board-strs (DecoratedBoard. board nil nil) true))))
-
 (defn print-message [dboard is-friendly]
   nil)
 
 ; If all pieces have no HP, the game is over for that player
-(defn board-won? [dboard]
+(defn board-lost? [dboard]
   (zero? (apply + (vals (:pieces dboard)))))
 
 (defn game-won? [game]
-  (or (board-won? (:board1 game)) (board-won? (:board2 game))))
+  (or (board-lost? (:board1 game)) (board-lost? (:board2 game))))
 
+; 0 for nobody, 1 for player, 2 for computer
 (defn get-winner [game]
-  (if (board-won? {:board1 game})
-    1
-    (if (board-won? {:board2 game}) 2 0)))
+  (if (board-lost? (:board1 game))
+    2
+    (if (board-lost? (:board2 game)) 1 0)))
 
+; canonically, board1 is player's board (he fires upon board2)
 (defrecord Game [board1 board2])
 (defn newgame []
   (Game. (new-decorated-board)
@@ -71,16 +43,17 @@
                :missed "It's a miss."
                :struck "It's a hit!"
                :sunk (str (if is-player
-                            "You sunk my "
-                            "I sunk your ") (first more) "!")))))
+                            "***You sunk my "
+                            "***I sunk your ") (first more) "!***")))))
 
 ; Print a game to *out*
 (defn printgame [{dboard1 :board1, dboard2 :board2}]
   (print-message dboard2 true) (print-message dboard1 false)
   (println (str "My board" "             " "Your board"))
   (dorun (map println
-              (get-board-strs dboard2 false) (repeat "      ")
-              (get-board-strs dboard1 true))))
+              (get-board-strs (:board dboard2) (:pieces dboard2) false)
+              (repeat "      ")
+              (get-board-strs (:board dboard1) (:pieces dboard1) true))))
 
 ; Helper fns for 'fire
 (defn miss [dboard x y target]
@@ -110,7 +83,7 @@
       (miss dboard x y target)
       (hit dboard x y target))))
 
-(def ai-search 50)
+(def ai-search 100)
 
 ; Turn for the AI. Returns [modified game, modified ai-dist]
 (defn do-computer-turn [game]
@@ -120,9 +93,11 @@
                         board1
                         ; remove all dead pieces from the 'pieces set'
                         ; before passing to infinite-boards
-                        (reduce conj {}
-                                (remove #(= 0 (second %)) (:pieces dboard1))))
-        [x y] (get-target board1 board-samples 1000)
+                        (select-keys pieces-map
+                                (map first
+                                     (remove #(= 0 (second %))
+                                             (:pieces dboard1)))))
+        [x y] (get-target board1 board-samples ai-search)
         was-occupied (not (nil? (:piece (get-square board1 x y))))
         newdboard1 (fire dboard1 x y)]
     (assoc game :board1 newdboard1)))
@@ -130,13 +105,13 @@
 ; Helper fns for the battleship main loop
 ; All fns below interact with the in and out streamsh
 (defn is-valid-coord [coordinate]
-  (or (>= coordinate 0) (< coordinate 10)))
+  (and (>= coordinate 0) (< coordinate 10)))
 
 (defn print-endgame [game]
   (let [winner (get-winner game)]
     (if (= winner 1)
-      (println "***YOU WIN!***")
-      (println "***YOU LOSE!***"))))
+      (println "*** YOU WIN! ***")
+      (println "*** YOU LOSE! ***"))))
 
 ; Parse input and fire
 (defn do-player-turn [game]
@@ -153,6 +128,13 @@
         (do
           (println "Please input valid coordinates.")
           (recur game)) ; Go back to beginning, try again
+        (not (nil? (nth (concat (filter #(not (Character/isWhitespace %))
+                                        input-line)
+                                (repeat nil)) ; prevent NPE
+                        2))) ; more than 2 things were input
+        (do
+          (println "Please input just a letter and a number.")
+          (recur game))
         true
         (let [uppercase-letter (if (>= (int letter) (int \a))
                                  (char (- (int letter) 32))
@@ -172,13 +154,13 @@
   (println
     "Welcome to Battleship. Input some coordinates to fire, or 'Q' to quit.")
   (loop [game (newgame)]
-    (dotimes [i 10] (println))
+    (dotimes [i 8] (println))
     (printgame game)
     (if (game-won? game)
       (print-endgame game) ; do not recur, terminate
       (let [game (do-player-turn game)]
         (cond
           (nil? game) nil
-          (game-won? game) (print-endgame game)
+          (game-won? game) (do (printgame game) (print-endgame game))
           true (recur (do-computer-turn game))))))
   (flush))

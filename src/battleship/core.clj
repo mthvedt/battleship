@@ -22,12 +22,15 @@
    ["submarine" 3]
    ["destroyer" 2]])
 
+(def pieces-map (reduce conj {} pieces))
+
 ; places a piece on the board, or nil if it can't be placed according
 ; to the given validator fn
 ; the validator function should take in the original board, x, and y
 (defn place-piece [board0 [piecename piecelen] x0 y0 is-horizontal validator]
   (let [xstep (if is-horizontal 1 0)
         ystep (if is-horizontal 0 1)]
+    ;(print "p:" x0 y0 is-horizontal)
     (loop [board board0 x x0 y y0 i 0]
       (if (= i piecelen)
         board
@@ -38,6 +41,7 @@
 
 ; try once to place a piece, return nil if failed
 (defn randomly-try-place-piece [board [piecename piecelen] validator]
+  ;(print "rtpp:" piecename piecelen)
   (let [is-horizontal (= (rand-int 2) 0)
         coord-a (rand-int board-size)
         ; subtract piecelen; make sure the piece doesn't overflow off the board
@@ -50,6 +54,7 @@
 ; works by making an infinite sequence of randomly-try-place-piece calls
 ; and pulling the first one
 (defn randomly-place-piece [board piece validator]
+  ;(print "rpp:" piece)
   (first (remove nil? (repeatedly
                         #(randomly-try-place-piece board piece validator)))))
 
@@ -59,6 +64,37 @@
                              #(nil? (:piece (get-square % %2 %3)))))
   ; Places all the given pieces on teh given board according
   ; to a given validator.
-  ([board pieces validator] (reduce
-                              #(randomly-place-piece % %2 validator)
-                              board pieces)))
+  ([board mypieces validator] ;(print "a")
+   (reduce
+     #(randomly-place-piece % %2 validator)
+     board mypieces)))
+
+(defn get-square-str [{piece :piece, state :state} pieces is-friendly]
+  (case state
+    :struck (if (nil? piece) "."
+              (if (zero? (get pieces piece)) "#"
+                "*"))
+    :unstruck (if (and is-friendly (not (nil? piece))) "O" " ")))
+
+; Concatenate all the things then apply str. Not the same as C 'strcat'
+(defn strcat [& things] (apply str (apply concat things)))
+
+; A sequence of strs (lines) representing a board
+; each str has the same length, making this a 13x13 char grid
+(defn get-board-strs [board pieces is-friendly]
+  (let [top-bottom-border (strcat " +" (repeat board-size "-") "+")]
+    (concat
+      [(strcat "  " (range 10) " ")]
+      [top-bottom-border]
+      (map (fn [char-num row]
+             (strcat [(char char-num)] "|"
+                     (map #(get-square-str %
+                                           pieces
+                                           is-friendly)
+                          row) "|"))
+           (range (int \A) (int \K)) board)
+      [top-bottom-border])))
+
+; good for debugging
+(defn print-board [board]
+  (dorun (map println (get-board-strs board pieces true))))

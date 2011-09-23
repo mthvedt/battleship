@@ -4,7 +4,7 @@ A Monte Carlo Battleship AI, in Clojure.
 
 ## Motivation
 
-Written as a coding exercise to get the hang of functional programming techniques and probabilistic methods. Also, because I enjoy wasting my time playing games.
+I wrote this as a coding exercise to get the hang of functional programming techniques and probabilistic methods. Also, because I enjoy wasting my time playing games.
 
 ## Description
 
@@ -14,7 +14,7 @@ Currently, ship placement is random. You can't place your own ships. Maybe next 
 
 ## How to play
 
-Download the standalone jar and run:
+Download the distribution, or the standalone jar, and run:
 ```
 java -jar battleship.jar
 ```
@@ -32,12 +32,12 @@ It uses a greedy firing algorithm, firing on the square most likely to contain a
 
 The first implementation used naive generation--any possible board was generated, and then rejected. As the board filled up with hits and misses, this became unacceptably slow. So the rejection criteria were divided into two: one set taken into account at board generation time, to efficiently generate boards that are more likely to be valid. The second set operates after board generation time, rejecting boards that turned out invalid anyway. This implementation is much faster; however, it still slows down in some edge cases--in particular, if the computer has struck several ships, but not sunk them yet.
 
-Some impossible positions are not actually rejected. For instance, suppose the computer has hit C5, D5, E5 and F5 without having sunk a ship. The computer may generate some speculative boards where these four squares are occupied by a battleship, four spaces long; even though that's impossible because it would have been sunk. These impossible positions seem to have a negligible effect on the computer's play, and so are not rejected because the programmer is a little lazy.
+Some impossible positions are not actually rejected. For instance, suppose the computer has fired at, and hit C5, D5, E5 and F5, without having sunk a ship. The computer may generate some speculative boards where these four squares are occupied by a battleship (which is four spaces long); even though that's impossible because it would have been sunk. These impossible positions seem to have a negligible effect on the computer's play, and so are not rejected because the programmer is a little lazy.
 
 ### Thoughts
 
 * The random distribution is as follows: it places one ship randomly, then another, then another, until it's done. This looks uniformly random, but it actually isn't. For instance, positions where there are more options to place the last ship will be less likely than positions where there are fewer ways to place the last ship. Nevertheless, it is "random enough" for now.
-* The computer doesn't make any short-circuit inferences. For instance, when it might be totally clear to a human player where his last carrier is located, the computer will still run a full simulation to find it. This can sometimes be noticably slow.
+* The computer doesn't make any short-circuit inferences. For instance, when it might be totally clear to a human player where his last carrier is located, the computer will still run a full simulation to find it. This can sometimes be noticeably slow.
 * On that note, there is certainly a lot of room for performance improvements.
 * The computer always starts off by firing at the center, which is where pieces are most likely to be placed in its random simulations. A human, given the option, can exploit this by preferring edge and corner positions.
 

@@ -4,7 +4,7 @@ A Monte Carlo Battleship AI, in Clojure.
 
 ## Motivation
 
-Written as a coding exercise to get the hang of functional programming techniques and probabilistic methods.
+Written as a coding exercise to get the hang of functional programming techniques and probabilistic methods. Also, because I enjoy wasting my time playing games.
 
 ## Description
 
@@ -15,9 +15,11 @@ Currently, ship placement is random. You can't place your own ships. Maybe next 
 ## How to play
 
 Download the standalone jar and run:
-```bash
+```
 java -jar battleship.jar
 ```
+
+and follow the very simple instructions. Enjoy!
 
 ### The solver
 
@@ -41,4 +43,8 @@ Some impossible positions are not actually rejected. For instance, suppose the c
 
 ## License
 
-This work is public domain.
+This work is public domain. This work comes distributed with Clojure, which is released under the Eclipse Public License.
+
+## And, finally...
+
+Please notify me if you find any issues!

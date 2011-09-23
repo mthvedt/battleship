@@ -30,7 +30,6 @@
 (defn place-piece [board0 [piecename piecelen] x0 y0 is-horizontal validator]
   (let [xstep (if is-horizontal 1 0)
         ystep (if is-horizontal 0 1)]
-    ;(print "p:" x0 y0 is-horizontal)
     (loop [board board0 x x0 y y0 i 0]
       (if (= i piecelen)
         board
@@ -41,7 +40,6 @@
 
 ; try once to place a piece, return nil if failed
 (defn randomly-try-place-piece [board [piecename piecelen] validator]
-  ;(print "rtpp:" piecename piecelen)
   (let [is-horizontal (= (rand-int 2) 0)
         coord-a (rand-int board-size)
         ; subtract piecelen; make sure the piece doesn't overflow off the board
@@ -54,7 +52,6 @@
 ; works by making an infinite sequence of randomly-try-place-piece calls
 ; and pulling the first one
 (defn randomly-place-piece [board piece validator]
-  ;(print "rpp:" piece)
   (first (remove nil? (repeatedly
                         #(randomly-try-place-piece board piece validator)))))
 
@@ -62,9 +59,9 @@
   ; Places all 5 default pieces on the given board
   ([board] (place-all-pieces board pieces
                              #(nil? (:piece (get-square % %2 %3)))))
-  ; Places all the given pieces on teh given board according
+  ; Places all the given pieces on the given board according
   ; to a given validator.
-  ([board mypieces validator] ;(print "a")
+  ([board mypieces validator] 
    (reduce
      #(randomly-place-piece % %2 validator)
      board mypieces)))

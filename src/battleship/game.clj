@@ -8,10 +8,6 @@
 (defn new-decorated-board []
   (DecoratedBoard. (place-all-pieces newboard) pieces-map nil))
 
-; Returns a str representing a square
-(defn print-message [dboard is-friendly]
-  nil)
-
 ; If all pieces have no HP, the game is over for that player
 (defn board-lost? [dboard]
   (zero? (apply + (vals (:pieces dboard)))))
@@ -94,9 +90,9 @@
                         ; remove all dead pieces from the 'pieces set'
                         ; before passing to infinite-boards
                         (select-keys pieces-map
-                                (map first
-                                     (remove #(= 0 (second %))
-                                             (:pieces dboard1)))))
+                                     (map first
+                                          (remove #(= 0 (second %))
+                                                  (:pieces dboard1)))))
         [x y] (get-target board1 board-samples ai-search)
         was-occupied (not (nil? (:piece (get-square board1 x y))))
         newdboard1 (fire dboard1 x y)]

@@ -24,7 +24,6 @@
 ; which is known to be blocked.
 (defn blocked-square-validator [kmap]
   (fn [_ x y]
-    ; (print "v" x y (not (= :blocked (get kmap [x y]))))
     (not (= :blocked (get kmap [x y])))))
 
 ; Makes sure that, for some board, all squares known to have a ship
@@ -48,8 +47,6 @@
 ; that match these criteria.
 (defn infinite-boards [known-board mypieces]
   (let [kmap (knowledge-map known-board mypieces)]
-    ;(println (sort kmap))
-    ;(println mypieces)
     (filter #(struck-square-checker % kmap)
             (repeatedly #(place-all-pieces newboard mypieces
                                            (blocked-square-validator kmap))))))
@@ -72,7 +69,6 @@
 ; to play much better with eager seqs than lazy ones.
 (defn get-distribution [boardseq]
   (reduce (fn [running-count board]
-            ;(println "reducing")
             (doall (map (fn [running-count-row row]
                           (doall (map + running-count-row
                                       (map is-target row))))
@@ -92,5 +88,4 @@
 
 (defn get-target [theboard theseq search-size]
   (let [dist (get-distribution (take search-size theseq))]
-    ;(dorun (map println dist))
     (get-target-from-dist theboard dist)))

@@ -7,7 +7,8 @@
 
 (defn new-decorated-board []
   (DecoratedBoard. (place-all-pieces (newboard))
-                   (apply hash-map (apply concat pieces)) nil))
+                   (apply hash-map (apply concat pieces))
+                   nil))
 
 ; Returns a str representing a square
 (defn get-square-str [{piece :piece, state :state} pieces is-friendly]
@@ -62,9 +63,23 @@
   (Game. (new-decorated-board)
          (new-decorated-board)))
 
+(defn print-message [dboard is-player]
+  (when-let [[x y result & more] (:action dboard)]
+    (if is-player
+      (print "You fire at ")
+      (print "I fire at "))
+    (print (str (char (+ y (int \A))) x ". "))
+    (println (case result
+               :ineffective "But that area has already been fired upon."
+               :missed "It's a miss."
+               :struck "It's a hit!"
+               :sunk (str (if is-player
+                            "You sunk my "
+                            "I sunk your ") (first more) "!")))))
+
 ; Print a game to *out*
 (defn printgame [{dboard1 :board1, dboard2 :board2}]
-  (print-message dboard1 true) (print-message dboard2 false)
+  (print-message dboard2 true) (print-message dboard1 false)
   (println (str "My board" "             " "Your board"))
   (dorun (map println
               (get-board-strs dboard2 false) (repeat "      ")
@@ -78,7 +93,7 @@
       (assoc dboard
              :board (set-square (:board dboard) x y
                                 (assoc target :state :struck))
-             :message [x y :missed])
+             :action [x y :missed])
       (if (= :unstruck state) ; hit something unstruck
         (let [pieces (:pieces dboard)
               hitpoints (dec (get pieces piece))] ; decrement piece's HP
@@ -87,8 +102,8 @@
                            (assoc pieces piece hitpoints)
                            (if (zero? hitpoints)
                              [x y :sunk piece]
-                             [x y :struck piece])))
-        (assoc dboard :message [x y :ineffective])))))
+                             [x y :struck])))
+        (assoc dboard :action [x y :ineffective])))))
 
 (defn is-valid-coord [coordinate]
   (or (>= coordinate 0) (< coordinate 10)))
@@ -130,7 +145,7 @@
               (if (and (is-valid-coord letter-coord)
                        (is-valid-coord number-coord))
                 (recur (Game. (:board1 game)
-                              (fire (:board2 game) letter-coord number-coord)))
+                              (fire (:board2 game) number-coord letter-coord)))
                 (do
                   (println "Please input valid coordinates.")
                   (recur game))))))))))

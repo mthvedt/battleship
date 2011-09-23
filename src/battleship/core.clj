@@ -13,11 +13,11 @@
   (vec (repeat board-size (vec (repeat board-size (Square. nil :unstruck))))))
 
 (defn get-square [board x y]
-  (nth (nth board x) y))
+  (nth (nth board y) x))
 
 (defn set-square [board x y square]
-  (let [row (nth board x)]
-    (assoc board x (assoc row y square))))
+  (let [row (nth board y)]
+    (assoc board y (assoc row x square))))
 
 (def pieces
   [["carrier" 5]

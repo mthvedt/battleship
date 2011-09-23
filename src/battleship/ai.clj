@@ -54,7 +54,7 @@
 ;  Gets the most valuable target to fire upon. Returns the coordinates.
 (defn get-target [dist]
   (let [coordinate-value-tuples
-             (apply concat (map (fn [row y]
+             (mapcat (fn [row y]
                                   (map #(vector % %2 y) row (range)))
-                                dist (range)))]
+                                dist (range))]
     (apply max-key first coordinate-value-tuples)))

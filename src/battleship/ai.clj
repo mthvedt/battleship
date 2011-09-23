@@ -3,29 +3,58 @@
 
 ; A Monte Carlo based AI for Battleship.
 
-; An infinite sequence of random boards.
-;
-; In Clojure inifinte sequences are declared with defn.
-; If it were a def, a reference to the beginning of infinite-boards
-; would always exist. Since Clojure caches its lazy seqs,
-; this is a recipe for OutOfMemoryErrors.
-;
-; By making this an fn, we can generate infinite-board seqs
-; and immediately throw away the reference to the head of the seq,
-; allowing garbage collection to clean up already-consumed boards.
-(defn infinite-boards []
-  (repeatedly #(place-all-pieces (newboard))))
+; Helper for infinite-seq. Given a square on a board, tells what the AI
+; is "allowed to know" about it. A square may have one of the given pieces,
+; not have a ship (blocked), or be unknown.
+(defn get-knowledge [square pieces-map]
+  (if (= :struck (:state square))
+    (if (nil? (get pieces-map (:piece square)))
+      :blocked ; There's a sunk ship or no ship here
+      :has-ship) ; We know there's an unsunk ship here
+    :unknown)) ; We don't know what's here
 
-; Returns only those boards for which the given square is
-; ocean or occupied by a piece, depending on the value of is-occupied
-(defn filter-boards [boardseq x y is-occupied]
-  (filter #(= is-occupied (not (nil? (:piece (get-square x y %)))))
-          boardseq))
+(def all-coordinates (for [x (range 10) y (range 10)] [x y]))
+
+(defn knowledge-map [known-board pieces-map]
+  (zipmap all-coordinates
+          (for [[x y] all-coordinates]
+            (get-knowledge (get-square known-board x y) pieces-map))))
+
+; Square validator (see 'place-all-pieces) that rejects any square
+; which is known to be blocked.
+(defn blocked-square-validator [kmap]
+  (fn [_ x y] (not (= :blocked (get kmap [x y])))))
+
+; Makes sure that, for some board, all squares known to have a ship
+; do in fact have a ship.
+(defn struck-square-checker [candidate-board kmap]
+    (loop [coordinate (first all-coordinates)
+           coordinates (rest all-coordinates)]
+      (if (nil? coordinate)
+        true ; loop over
+        (let [[x y] coordinate]
+          (if (= :has-ship (get kmap coordinate))
+            (if (nil? (:piece (get-square candidate-board x y)))
+              false ; square should have a ship, but it didn't
+              (recur (first coordinates) (rest coordinates)))
+            (recur (first coordinates) (rest coordinates)))))))
+
+; Given a known-board, containing struck and unstruck squares,
+; and pieces, containing unsunk ships;
+; generates an infinite sequence of possible boards
+; that match these criteria.
+(defn infinite-boards [known-board pieces-map]
+  (let [kmap (knowledge-map known-board pieces-map)]
+    (println kmap)
+    (filter #(struck-square-checker % kmap)
+            (repeatedly #(place-all-pieces
+                           newboard pieces
+                           (blocked-square-validator kmap))))))
 
 ; 1 if we might want to shoot that square, 0 otherwise
 (defn is-target [square]
   (if (and (not (nil? (:piece square)))
-       (= :unstruck (:state square)))
+           (= :unstruck (:state square)))
     1 0))
 
 ; Gets the (not normalized) distribution of targetable squares
@@ -41,20 +70,23 @@
 (defn get-distribution [boardseq]
   (reduce (fn [running-count board]
             (doall (map (fn [running-count-row row]
-                   (doall (map + running-count-row
-                        (map is-target row))))
-                 running-count board)))
+                          (doall (map + running-count-row
+                                      (map is-target row))))
+                        running-count board)))
           (repeat (repeat 0.0)) boardseq))
 
-#_(defn get-normalized-probability-distribution [boardseq]
-  (let [magnitude (apply #(apply + %) boardseq)]
-    (map #(map / (float %) magnitude)
-         (get-distribution boardseq))))
-
 ;  Gets the most valuable target to fire upon. Returns the coordinates.
-(defn get-target [dist]
-  (let [coordinate-value-tuples
-             (mapcat (fn [row y]
-                                  (map #(vector % %2 y) row (range)))
-                                dist (range))]
-    (apply max-key first coordinate-value-tuples)))
+(defn get-target-from-dist [theboard dist]
+  (let [coordinate-value-tuples ; tuples of [value, x, y]
+        (mapcat (fn [row y]
+                  (map #(vector % %2 y) row (range)))
+                dist (range))
+        filtered-cvt (filter (fn [[_ x y]] ; remove all struck squares
+                               (= :unstruck (:state (get-square theboard x y))))
+                             coordinate-value-tuples)]
+    (rest (apply max-key first filtered-cvt)))) ; return (x, y)
+
+(defn get-target [theboard theseq search-size]
+  (let [dist (get-distribution (take search-size theseq))]
+    (dorun (map println dist))
+  (get-target-from-dist theboard dist)))

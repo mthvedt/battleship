@@ -1,12 +1,12 @@
 (ns battleship.game
-  (:use battleship.core)
+  (:use battleship.core battleship.ai)
   (:gen-class))
 
 ; A board + some data
 (defrecord DecoratedBoard [board pieces action])
 
 (defn new-decorated-board []
-  (DecoratedBoard. (place-all-pieces (newboard)) (reduce conj {} pieces) nil))
+  (DecoratedBoard. (place-all-pieces newboard) (reduce conj {} pieces) nil))
 
 ; Returns a str representing a square
 (defn get-square-str [{piece :piece, state :state} pieces is-friendly]
@@ -110,6 +110,23 @@
       (miss dboard x y target)
       (hit dboard x y target))))
 
+(def ai-search 50)
+
+; Turn for the AI. Returns [modified game, modified ai-dist]
+(defn do-computer-turn [game]
+  (let [dboard1 (:board1 game)
+        board1 (:board dboard1)
+        board-samples (infinite-boards
+                        board1
+                        ; remove all dead pieces from the 'pieces set'
+                        ; before passing to infinite-boards
+                        (reduce conj {}
+                                (remove #(= 0 (second %)) (:pieces dboard1))))
+        [x y] (get-target board1 board-samples 1000)
+        was-occupied (not (nil? (:piece (get-square board1 x y))))
+        newdboard1 (fire dboard1 x y)]
+    (assoc game :board1 newdboard1)))
+
 ; Helper fns for the battleship main loop
 ; All fns below interact with the in and out streamsh
 (defn is-valid-coord [coordinate]
@@ -124,13 +141,12 @@
 ; Parse input and fire
 (defn do-player-turn [game]
   (do
-    (print "Fire: ")
-    (flush)
+    (print "Fire: ") (flush)
     (let [input-line (read-line) 
           letter (first (filter #(Character/isLetter %) input-line))
           number (first (filter #(Character/isDigit %) input-line))]
       (cond
-        (= \Q letter)
+        (or (= \q letter) (= \Q letter))
         (do
           (println "Be seeing you...")) ; return nil--game over
         (or (nil? letter) (nil? number))
@@ -156,9 +172,13 @@
   (println
     "Welcome to Battleship. Input some coordinates to fire, or 'Q' to quit.")
   (loop [game (newgame)]
-    (when-not (nil? game)
-      (printgame game)
-      (if (game-won? game)
-        (print-endgame game) ; do not recur, terminate
-        (recur (do-player-turn game)))))
+    (dotimes [i 10] (println))
+    (printgame game)
+    (if (game-won? game)
+      (print-endgame game) ; do not recur, terminate
+      (let [game (do-player-turn game)]
+        (cond
+          (nil? game) nil
+          (game-won? game) (print-endgame game)
+          true (recur (do-computer-turn game))))))
   (flush))

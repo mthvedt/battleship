@@ -1,9 +1,11 @@
 (ns battleship.core)
+; Very basic battleship stuff goes here.
 
 ; A square can be empty or contain a ship.
 ; A square can be in three states: unstruck, struck, or sunk.
 (defrecord Square [piece state])
 
+; Boards and squares.
 (def board-size 10)
 (def newboard
   (vec (repeat board-size (vec (repeat board-size (Square. nil :unstruck))))))
@@ -15,6 +17,7 @@
   (let [row (nth board y)]
     (assoc board y (assoc row x square))))
 
+; The pieces in the canonical US version of Battleship.
 (def pieces
   [["carrier" 5]
    ["battleship" 4]
@@ -22,11 +25,16 @@
    ["submarine" 3]
    ["destroyer" 2]])
 
+; A hash map version.
 (def pieces-map (reduce conj {} pieces))
 
 ; places a piece on the board, or nil if it can't be placed according
 ; to the given validator fn
 ; the validator function should take in the original board, x, and y
+; and return true if the validator will allow a piece to place there
+;
+; this allows us to generate random boards (with randomly-try-place-piece
+; below) according to certain constraints.
 (defn place-piece [board0 [piecename piecelen] x0 y0 is-horizontal validator]
   (let [xstep (if is-horizontal 1 0)
         ystep (if is-horizontal 0 1)]
@@ -66,6 +74,8 @@
      #(randomly-place-piece % %2 validator)
      board mypieces)))
 
+; Below are some methods for printing to console.
+; Gets a string given a square.
 (defn get-square-str [{piece :piece, state :state} pieces is-friendly]
   (case state
     :struck (if (nil? piece) "."
@@ -73,6 +83,7 @@
                 "*"))
     :unstruck (if (and is-friendly (not (nil? piece))) "O" " ")))
 
+; General purpose helper fn.
 ; Concatenate all the things then apply str. Not the same as C 'strcat'
 (defn strcat [& things] (apply str (apply concat things)))
 

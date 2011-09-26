@@ -3,7 +3,7 @@
 
 ; A Monte Carlo based AI for Battleship.
 
-; Helper for infinite-seq. Given a square on a board, tells what the AI
+; Given a square on a board, tells what the AI
 ; is "allowed to know" about it. A square may have one of the given pieces,
 ; not have a ship (blocked), or be unknown.
 (defn get-knowledge [square mypieces]
@@ -13,8 +13,10 @@
       :has-ship) ; We know there's an unsunk ship here
     :unknown)) ; We don't know what's here
 
+; [x, y] running thru [10, 10].
 (def all-coordinates (for [x (range 10) y (range 10)] [x y]))
 
+; A map [x, y] -> what is known about it
 (defn knowledge-map [known-board mypieces]
   (zipmap all-coordinates
           (for [[x y] all-coordinates]
@@ -60,13 +62,10 @@
 ; Gets the (not normalized) distribution of targetable squares
 ; in a (finite) boardseq.
 ;
-; There are a number of doalls here. Two reasons for this.
-; The first is that reducing a lazy seq can produce a tower of calls.
-; While most functional languages will handle the case where these are
-; tailcalls, Clojure does not.
-; The second is that this is the most performance-critical fn.
-; in performance-critical areas, the JVM/JIT seems
-; to play much better with eager seqs than lazy ones.
+; Doalls are used here to prevent lazy reduction.
+; In some cases, reducing a lazy seq with a lazy fn
+; can produce a tower of calls. Most LISP-like languages take care of this
+; with tail-call optimization; the JVM can't.
 (defn get-distribution [boardseq]
   (reduce (fn [running-count board]
             (doall (map (fn [running-count-row row]
@@ -75,7 +74,7 @@
                         running-count board)))
           (repeat (repeat 0)) boardseq))
 
-;  Gets the most valuable target to fire upon. Returns the coordinates.
+;  Guesses the most valuable target to fire upon. Returns the coordinates.
 (defn get-target-from-dist [theboard dist]
   (let [coordinate-value-tuples ; tuples of [value, x, y]
         (mapcat (fn [row y]
@@ -86,6 +85,7 @@
                              coordinate-value-tuples)]
     (rest (apply max-key first filtered-cvt)))) ; return (x, y)
 
+; The punch line. Guesses the most valuable target from a sequence of boards. 
 (defn get-target [theboard theseq search-size]
   (let [dist (get-distribution (take search-size theseq))]
     (get-target-from-dist theboard dist)))

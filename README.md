@@ -19,7 +19,7 @@ Download the distribution, or the standalone jar, and run:
 java -jar battleship.jar
 ```
 
-and follow the very simple instructions. Enjoy!
+and follow the instructions. Enjoy!
 
 ### The solver
 

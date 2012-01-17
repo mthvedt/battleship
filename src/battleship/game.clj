@@ -7,7 +7,8 @@
 
 ; a board together with some info about the game state
 (defn new-decorated-board []
-  (DecoratedBoard. (place-all-pieces newboard) pieces-map nil))
+  (DecoratedBoard. (retrying (try-place-all-pieces newboard))
+                   pieces-map nil))
 
 ; canonically, board1 is player's board (he fires upon board2)
 (defrecord Game [board1 board2])

@@ -1,11 +1,15 @@
 (ns battleship.core)
 ; Very basic battleship stuff goes here.
 
+; a utility fn--repeatedly tries a form until it yields not nil
+(defmacro retrying [& forms]
+  `(first (remove nil? (repeatedly (fn [] ~@forms)))))
+
 ; A square can be empty or contain a ship.
 ; A square can be in three states: unstruck, struck, or sunk.
 (defrecord Square [piece state])
 
-; Boards and squares.
+; Boards and squares. A board is a 2-d sequence of sequences of squares.
 (def board-size 10)
 (def newboard
   (vec (repeat board-size (vec (repeat board-size (Square. nil :unstruck))))))
@@ -17,6 +21,15 @@
   (let [row (nth board y)]
     (assoc board y (assoc row x square))))
 
+; the validator function should take in the original board, x, and y
+; and return true if the validator will allow a piece to place there
+(defn set-valid-square [board x y square validator]
+  (if (nil? board)
+    nil
+    (if (validator board x y)
+      (set-square board x y square)
+      nil)))
+
 ; The pieces in the canonical US version of Battleship.
 (def pieces
   [["carrier" 5]
@@ -25,53 +38,67 @@
    ["submarine" 3]
    ["destroyer" 2]])
 
-; A hash map version.
+; A hash map of the above.
 (def pieces-map (reduce conj {} pieces))
+
+; helper fn for place-piece
+(defn get-range [coord0 step?]
+  (if step?
+    (range coord0 Double/POSITIVE_INFINITY)
+    (repeat coord0)))
 
 ; places a piece on the board, or nil if it can't be placed according
 ; to the given validator fn
-; the validator function should take in the original board, x, and y
-; and return true if the validator will allow a piece to place there
-;
-; this allows us to generate random boards (with randomly-try-place-piece
-; below) according to certain constraints.
 (defn place-piece [board0 [piecename piecelen] x0 y0 is-horizontal validator]
-  (let [xstep (if is-horizontal 1 0)
-        ystep (if is-horizontal 0 1)]
-    (loop [board board0 x x0 y y0 i 0]
-      (if (= i piecelen)
-        board
-        (if (validator board0 x y)
-          (recur (set-square board x y (Square. piecename :unstruck))
-                 (+ x xstep) (+ y ystep) (inc i))
-          nil)))))
+  (let [xrange (get-range x0 is-horizontal)
+        yrange (get-range y0 (not is-horizontal))
+        placer (fn [board [x y]] (set-valid-square board
+                                                   x y
+                                                   (Square. piecename
+                                                            :unstruck)
+                                                   validator))]
+    (reduce placer board0 (take piecelen (map vector xrange yrange)))))
 
-; try once to place a piece, return nil if failed
-(defn randomly-try-place-piece [board [piecename piecelen] validator]
+(defn occupied-validator [board x y]
+  (nil? (get (get-square board x y) :piece)))
+
+; return a random [x, y] coordinate, or nil
+(defn try-random-piece-coords [board piecelen validator]
   (let [is-horizontal (= (rand-int 2) 0)
         coord-a (rand-int board-size)
-        ; subtract piecelen; make sure the piece doesn't overflow off the board
+        ; make sure the piece doesn't overflow off the board
         coord-b (rand-int (- board-size piecelen))]
     (let [x (if is-horizontal coord-b coord-a)
           y (if is-horizontal coord-a coord-b)]
-      (place-piece board [piecename piecelen] x y is-horizontal validator))))
+      (if (place-piece board ["dummy" piecelen] x y is-horizontal validator)
+        [x y is-horizontal]
+        nil))))
 
 ; try (possibly forever!) to place a piece
 ; works by making an infinite sequence of randomly-try-place-piece calls
-; and pulling the first one
-(defn randomly-place-piece [board piece validator]
-  (first (remove nil? (repeatedly
-                        #(randomly-try-place-piece board piece validator)))))
+; and pulling the first one that passes the validator.
+;
+; boards with overlapping pieces are destroyed outright (returning nil),
+; instead of trying again. this prevents "restricted choice"
+; or "monty hall" biasing of the solution space. the full math behind it
+; is too much to fit here
+(defn try-randomly-place-piece [board [piecename piecelen :as piece]
+                                validator]
+  (if (nil? board)
+    nil
+    (let [[x y is-horizontal] (retrying (try-random-piece-coords
+                                         board piecelen validator))]
+      (place-piece board piece x y is-horizontal occupied-validator))))
 
-(defn place-all-pieces
+; Can return nil.
+(defn try-place-all-pieces
   ; Places all 5 default pieces on the given board
-  ([board] (place-all-pieces board pieces
-                             #(nil? (:piece (get-square % %2 %3)))))
+  ([board] (try-place-all-pieces board pieces (fn [& _] true)))
   ; Places all the given pieces on the given board according
   ; to a given validator.
   ([board mypieces validator] 
    (reduce
-     #(randomly-place-piece % %2 validator)
+     #(try-randomly-place-piece % %2 validator)
      board mypieces)))
 
 ; Below are some methods for printing to console.

@@ -3,17 +3,17 @@
 
 ; A Monte Carlo based AI for Battleship.
 
-; Given a square on a board, tells what the AI
-; is "allowed to know" about it. A square may have one of the given pieces,
-; not have a ship (blocked), or be unknown.
+; Given a square on a board, tells what the AI knows about it.
+; It may know there's a live ship there, no ship there,
+; or the state may be wholly unknown.
 (defn get-knowledge [square mypieces]
   (if (= :struck (:state square))
     (if (nil? (get mypieces (:piece square)))
       :blocked ; There's a sunk ship or no ship here
       :has-ship) ; We know there's an unsunk ship here
-    :unknown)) ; We don't know what's here
+    :unknown)) ; We don't know what's here (haven't shot here yet)
 
-; [x, y] running thru [10, 10].
+; [x, y] running thru [10, 10]
 (def all-coordinates (for [x (range 10) y (range 10)] [x y]))
 
 ; A map [x, y] -> what is known about it
@@ -31,17 +31,13 @@
 ; Makes sure that, for some board, all squares known to have a ship
 ; do in fact have a ship.
 (defn struck-square-checker [candidate-board kmap]
-  (let [rval (loop [coordinate (first all-coordinates)
-                    coordinates (rest all-coordinates)]
-               (if (nil? coordinate)
-                 true ; loop over
-                 (let [[x y] coordinate]
-                   (if (= :has-ship (get kmap coordinate))
-                     (if (nil? (:piece (get-square candidate-board x y)))
-                       false ; square should have a ship, but it didn't
-                       (recur (first coordinates) (rest coordinates)))
-                     (recur (first coordinates) (rest coordinates))))))]
-    rval))
+  (empty? (filter (fn [[x y]]
+                    (and (= :has-ship (get kmap [x y]))
+                         (nil? (:piece (get-square candidate-board x y)))))
+                  ; The filter will find a square that is 'known'
+                  ; to have a ship but doesn't have one. Any such square
+                  ; causes the board to be rejected.
+                  all-coordinates)))
 
 ; Given a known-board, containing struck and unstruck squares,
 ; and pieces, containing unsunk ships;
@@ -49,9 +45,10 @@
 ; that match these criteria.
 (defn infinite-boards [known-board mypieces]
   (let [kmap (knowledge-map known-board mypieces)]
-    (filter #(struck-square-checker % kmap)
-            (repeatedly #(place-all-pieces newboard mypieces
-                                           (blocked-square-validator kmap))))))
+    (filter
+      #(and (not (nil? %)) (struck-square-checker % kmap))
+      (repeatedly #(try-place-all-pieces newboard mypieces
+                                         (blocked-square-validator kmap))))))
 
 ; 1 if we might want to shoot that square, 0 otherwise
 (defn is-target [square]
@@ -64,7 +61,8 @@
 ;
 ; Doalls are used here to prevent lazy reduction.
 ; In some cases, reducing a lazy seq with a lazy fn
-; can produce a tower of calls. Most LISP-like languages take care of this
+; can produce a large tower of nested fn calls and cause a stack overflow.
+; Most LISP-like languages take care of this
 ; with tail-call optimization; the JVM can't.
 (defn get-distribution [boardseq]
   (reduce (fn [running-count board]
@@ -81,7 +79,8 @@
                   (map #(vector % %2 y) row (range)))
                 dist (range))
         filtered-cvt (filter (fn [[_ x y]] ; remove all struck squares
-                               (= :unstruck (:state (get-square theboard x y))))
+                               (= :unstruck
+                                  (:state (get-square theboard x y))))
                              coordinate-value-tuples)]
     (rest (apply max-key first filtered-cvt)))) ; return (x, y)
 
